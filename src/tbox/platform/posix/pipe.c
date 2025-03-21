@@ -61,7 +61,7 @@ __tb_extern_c_leave__
  */
 
 // get pipe file name
-static __tb_inline__ tb_char_t const* tb_pipe_file_name(tb_char_t const* name, tb_char_t* data, tb_size_t maxn)
+static __tb_inline__ tb_char_t const* tb_pipe_file_name_posix(tb_char_t const* name, tb_char_t* data, tb_size_t maxn)
 {
     tb_size_t size = tb_directory_temporary(data, maxn);
     if (size && size < maxn)
@@ -79,8 +79,17 @@ static __tb_inline__ tb_char_t const* tb_pipe_file_name(tb_char_t const* name, t
 /* //////////////////////////////////////////////////////////////////////////////////////
  * implementation
  */
-#ifdef TB_CONFIG_POSIX_HAVE_MKFIFO
-tb_pipe_file_ref_t tb_pipe_file_init(tb_char_t const* name, tb_size_t mode, tb_size_t buffer_size)
+#ifdef __COSMOPOLITAN__
+// #include "libc/calls/calls.h"
+// #include "libc/sysv/consts/s.h"
+
+int mkfifo(const char *path, uint32_t mode) {
+  return mknod(path, mode | S_IFIFO, 0);
+}
+#endif
+
+#if defined(TB_CONFIG_POSIX_HAVE_MKFIFO) || defined(__COSMOPOLITAN__)
+tb_pipe_file_ref_t tb_pipe_file_init_posix(tb_char_t const* name, tb_size_t mode, tb_size_t buffer_size)
 {
     // check
     tb_assert_and_check_return_val(name, tb_null);
@@ -91,7 +100,7 @@ tb_pipe_file_ref_t tb_pipe_file_init(tb_char_t const* name, tb_size_t mode, tb_s
     {
         // get pipe name
         tb_char_t buffer[TB_PATH_MAXN];
-        tb_char_t const* pipename = tb_pipe_file_name(name, buffer, tb_arrayn(buffer));
+        tb_char_t const* pipename = tb_pipe_file_name_posix(name, buffer, tb_arrayn(buffer));
         tb_assert_and_check_break(pipename);
 
         // this pipe is not exists? we create it first
@@ -123,7 +132,7 @@ tb_pipe_file_ref_t tb_pipe_file_init(tb_char_t const* name, tb_size_t mode, tb_s
     return ok? tb_fd2pipefile(fd) : tb_null;
 }
 #else
-tb_pipe_file_ref_t tb_pipe_file_init(tb_char_t const* name, tb_size_t mode, tb_size_t buffer_size)
+tb_pipe_file_ref_t tb_pipe_file_init_posix(tb_char_t const* name, tb_size_t mode, tb_size_t buffer_size)
 {
     tb_trace_noimpl();
     return tb_null;
@@ -131,7 +140,7 @@ tb_pipe_file_ref_t tb_pipe_file_init(tb_char_t const* name, tb_size_t mode, tb_s
 #endif
 
 #if defined(TB_CONFIG_POSIX_HAVE_PIPE) || defined(TB_CONFIG_POSIX_HAVE_PIPE2)
-tb_bool_t tb_pipe_file_init_pair(tb_pipe_file_ref_t pair[2], tb_size_t mode[2], tb_size_t buffer_size)
+tb_bool_t tb_pipe_file_init_pair_posix(tb_pipe_file_ref_t pair[2], tb_size_t mode[2], tb_size_t buffer_size)
 {
     // check
     tb_assert_and_check_return_val(pair, tb_false);
@@ -167,13 +176,13 @@ tb_bool_t tb_pipe_file_init_pair(tb_pipe_file_ref_t pair[2], tb_size_t mode[2], 
     return ok;
 }
 #else
-tb_bool_t tb_pipe_file_init_pair(tb_pipe_file_ref_t pair[2], tb_size_t mode[2], tb_size_t buffer_size)
+tb_bool_t tb_pipe_file_init_pair_posix(tb_pipe_file_ref_t pair[2], tb_size_t mode[2], tb_size_t buffer_size)
 {
     tb_trace_noimpl();
     return tb_false;
 }
 #endif
-tb_bool_t tb_pipe_file_exit(tb_pipe_file_ref_t file)
+tb_bool_t tb_pipe_file_exit_posix(tb_pipe_file_ref_t file)
 {
     // check
     tb_assert_and_check_return_val(file, tb_false);
@@ -203,11 +212,11 @@ tb_bool_t tb_pipe_file_exit(tb_pipe_file_ref_t file)
     }
     return ok;
 }
-tb_long_t tb_pipe_file_connect(tb_pipe_file_ref_t file)
+tb_long_t tb_pipe_file_connect_posix(tb_pipe_file_ref_t file)
 {
     return 1;
 }
-tb_long_t tb_pipe_file_read(tb_pipe_file_ref_t file, tb_byte_t* data, tb_size_t size)
+tb_long_t tb_pipe_file_read_posix(tb_pipe_file_ref_t file, tb_byte_t* data, tb_size_t size)
 {
     // check
     tb_assert_and_check_return_val(file && data, -1);
@@ -228,7 +237,7 @@ tb_long_t tb_pipe_file_read(tb_pipe_file_ref_t file, tb_byte_t* data, tb_size_t 
     // error
     return -1;
 }
-tb_long_t tb_pipe_file_write(tb_pipe_file_ref_t file, tb_byte_t const* data, tb_size_t size)
+tb_long_t tb_pipe_file_write_posix(tb_pipe_file_ref_t file, tb_byte_t const* data, tb_size_t size)
 {
     // check
     tb_assert_and_check_return_val(file && data, -1);
@@ -249,7 +258,7 @@ tb_long_t tb_pipe_file_write(tb_pipe_file_ref_t file, tb_byte_t const* data, tb_
     // error
     return -1;
 }
-tb_long_t tb_pipe_file_wait(tb_pipe_file_ref_t file, tb_size_t events, tb_long_t timeout)
+tb_long_t tb_pipe_file_wait_posix(tb_pipe_file_ref_t file, tb_size_t events, tb_long_t timeout)
 {
 #if defined(TB_CONFIG_MODULE_HAVE_COROUTINE) \
         && !defined(TB_CONFIG_MICRO_ENABLE)

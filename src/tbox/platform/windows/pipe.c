@@ -22,7 +22,11 @@
 /* //////////////////////////////////////////////////////////////////////////////////////
  * includes
  */
-#include "prefix.h"
+#ifndef __COSMOPOLITAN__
+#   include "prefix.h"
+#else
+#   include <windowsesque.h>
+#endif
 #include "../pipe.h"
 #include "../file.h"
 #include "../atomic.h"
@@ -81,7 +85,7 @@ __tb_extern_c_leave__
  */
 
 // get pipe file name
-static __tb_inline__ tb_wchar_t const* tb_pipe_file_name(tb_char_t const* name, tb_wchar_t* data, tb_size_t maxn)
+static __tb_inline__ tb_wchar_t const* tb_pipe_file_name_win(tb_char_t const* name, tb_wchar_t* data, tb_size_t maxn)
 {
     // get pipe name
     tb_char_t pipename[TB_PATH_MAXN];
@@ -89,7 +93,7 @@ static __tb_inline__ tb_wchar_t const* tb_pipe_file_name(tb_char_t const* name, 
     tb_assert_and_check_return_val(size > 0, tb_null);
     return tb_atow(data, pipename, maxn) != -1? data : tb_null;
 }
-static tb_long_t tb_pipe_file_connect_direct(tb_pipe_file_ref_t self)
+static tb_long_t tb_pipe_file_connect_direct_win(tb_pipe_file_ref_t self)
 {
     // check
     tb_pipe_file_t* file = (tb_pipe_file_t*)self;
@@ -153,7 +157,7 @@ HANDLE tb_pipe_file_handle(tb_pipe_file_t* file)
 /* //////////////////////////////////////////////////////////////////////////////////////
  * implementation
  */
-tb_pipe_file_ref_t tb_pipe_file_init(tb_char_t const* name, tb_size_t mode, tb_size_t buffer_size)
+tb_pipe_file_ref_t tb_pipe_file_init_win(tb_char_t const* name, tb_size_t mode, tb_size_t buffer_size)
 {
     // check
     tb_assert_and_check_return_val(name, tb_null);
@@ -168,7 +172,7 @@ tb_pipe_file_ref_t tb_pipe_file_init(tb_char_t const* name, tb_size_t mode, tb_s
 
         // get pipe name
         tb_wchar_t buffer[TB_PATH_MAXN];
-        tb_wchar_t const* pipename = tb_pipe_file_name(name, buffer, tb_arrayn(buffer));
+        tb_wchar_t const* pipename = tb_pipe_file_name_win(name, buffer, tb_arrayn(buffer));
         tb_assert_and_check_break(pipename);
 
         // save the pipe name if be named pipe
@@ -214,7 +218,7 @@ tb_pipe_file_ref_t tb_pipe_file_init(tb_char_t const* name, tb_size_t mode, tb_s
     }
     return (tb_pipe_file_ref_t)file;
 }
-tb_bool_t tb_pipe_file_init_pair(tb_pipe_file_ref_t pair[2], tb_size_t mode[2], tb_size_t buffer_size)
+tb_bool_t tb_pipe_file_init_pair_win(tb_pipe_file_ref_t pair[2], tb_size_t mode[2], tb_size_t buffer_size)
 {
     // check
     tb_assert_and_check_return_val(pair, tb_false);
@@ -254,7 +258,7 @@ tb_bool_t tb_pipe_file_init_pair(tb_pipe_file_ref_t pair[2], tb_size_t mode[2], 
         tb_assert_and_check_break(pair[1]);
 
         // connect the writed pipe first
-        tb_long_t connected = tb_pipe_file_connect_direct(pair[1]);
+        tb_long_t connected = tb_pipe_file_connect_direct_win(pair[1]);
 
         // init the anonymous pipe for reading
         pair[0] = tb_pipe_file_init(name, TB_PIPE_MODE_RO, buffer_size);
@@ -266,7 +270,7 @@ tb_bool_t tb_pipe_file_init_pair(tb_pipe_file_ref_t pair[2], tb_size_t mode[2], 
             tb_long_t wait = tb_pipe_file_wait_direct(pair[1], TB_PIPE_EVENT_CONN, -1);
             tb_assert_and_check_break(wait > 0);
 
-        } while (!(connected = tb_pipe_file_connect_direct(pair[1])));
+        } while (!(connected = tb_pipe_file_connect_direct_win(pair[1])));
         tb_assert_and_check_break(connected > 0);
 
         // ok
@@ -283,16 +287,16 @@ tb_bool_t tb_pipe_file_init_pair(tb_pipe_file_ref_t pair[2], tb_size_t mode[2], 
     }
     return ok;
 }
-tb_long_t tb_pipe_file_connect(tb_pipe_file_ref_t self)
+tb_long_t tb_pipe_file_connect_win(tb_pipe_file_ref_t self)
 {
 #ifndef TB_CONFIG_MICRO_ENABLE
     // attempt to use iocp object to read data if exists
     tb_iocp_object_ref_t iocp_object = tb_iocp_object_get_or_new_from_pipe(self, TB_POLLER_EVENT_CONN);
     if (iocp_object) return tb_iocp_object_connect_pipe(iocp_object);
 #endif
-    return tb_pipe_file_connect_direct(self);
+    return tb_pipe_file_connect_direct_win(self);
 }
-tb_bool_t tb_pipe_file_exit(tb_pipe_file_ref_t self)
+tb_bool_t tb_pipe_file_exit_win(tb_pipe_file_ref_t self)
 {
     // check
     tb_pipe_file_t* file = (tb_pipe_file_t*)self;
@@ -339,7 +343,7 @@ tb_bool_t tb_pipe_file_exit(tb_pipe_file_ref_t self)
     tb_free(file);
     return tb_true;
 }
-tb_long_t tb_pipe_file_read(tb_pipe_file_ref_t self, tb_byte_t* data, tb_size_t size)
+tb_long_t tb_pipe_file_read_win(tb_pipe_file_ref_t self, tb_byte_t* data, tb_size_t size)
 {
     // check
     tb_pipe_file_t* file = (tb_pipe_file_t*)self;
@@ -384,7 +388,7 @@ tb_long_t tb_pipe_file_read(tb_pipe_file_ref_t self, tb_byte_t* data, tb_size_t 
         }
     }
 }
-tb_long_t tb_pipe_file_write(tb_pipe_file_ref_t self, tb_byte_t const* data, tb_size_t size)
+tb_long_t tb_pipe_file_write_win(tb_pipe_file_ref_t self, tb_byte_t const* data, tb_size_t size)
 {
     // check
     tb_pipe_file_t* file = (tb_pipe_file_t*)self;
@@ -429,7 +433,7 @@ tb_long_t tb_pipe_file_write(tb_pipe_file_ref_t self, tb_byte_t const* data, tb_
         }
     }
 }
-tb_long_t tb_pipe_file_wait(tb_pipe_file_ref_t self, tb_size_t events, tb_long_t timeout)
+tb_long_t tb_pipe_file_wait_win(tb_pipe_file_ref_t self, tb_size_t events, tb_long_t timeout)
 {
 #if defined(TB_CONFIG_MODULE_HAVE_COROUTINE) \
         && !defined(TB_CONFIG_MICRO_ENABLE)
